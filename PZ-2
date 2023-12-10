@@ -1,0 +1,107 @@
+#ПЗ-2
+
+import pandas as pd
+from sklearn.preprocessing import StandardScaler
+from sklearn.impute import SimpleImputer
+from sklearn.preprocessing import OneHotEncoder
+
+print(">------------------>")
+print("\n>------------------> шаг 1")
+# Шаг 1: Загрузка данных
+file_path = 'm2.csv'
+data = pd.read_csv(file_path)
+print(data)
+
+print("\n>------------------> Шаг 2.Очистка данных")
+# 2.1. Оценка состояния данных
+print("Информация о данных до очистки:")
+print(data.info())
+
+print("\n>------------------> Шаг 2.2.Идентификация и обработка пропущенных значений")
+
+data_filled=data.copy()     # сформируем выходной массив
+
+# пропущенные значения колонки 'date' дополняем на '0/00/0000'
+mode_date='0/0/0000'
+data_filled = data_filled.fillna({'date':mode_date})  
+ 
+# пропущенные значения колонки 'age' дополняем на -1, тип колонки меняем на int
+mode_age='-1'
+data_filled = data_filled.fillna({'age':mode_age})
+data_filled['age']=data_filled['age'].astype(int)
+
+# в цикле просматриваем колонки данных 
+# и выполняем дополнения пропущенных данных в зависимости от типа или имени колонки
+for col in data_filled.columns:
+    data_typ=data_filled.dtypes[col]
+# Используем среднее для заполнения пропущенных  числовых значений float
+    if data_typ == 'float64' and col != "num":
+        imputer1 = SimpleImputer(strategy='mean')
+        data_filled[[col]] = pd.DataFrame(imputer1.fit_transform(data_filled[[col]]))
+# Используем константу -1 для заполнения пропущенных в 'num'
+    if col=="num":     
+        imputer2 = SimpleImputer(strategy='constant',fill_value=-1)
+        data_filled[[col]] = pd.DataFrame(imputer2.fit_transform(data_filled[[col]]))
+# Используем константу "mX"+col для заполнения пропущенных d колонках типа "object"
+    if data_typ == "object":     
+        imputer2 = SimpleImputer(strategy='constant',fill_value="mX"+col)
+        data_filled[[col]] = pd.DataFrame(imputer2.fit_transform(data_filled[[col]]))        
+
+# после дополнения, тип колонки 'num' меняем на int
+data_filled['num']=data_filled['num'].astype(int) #
+# проверяем данные перед преобразованием
+print(data_filled)
+print(data_filled.info())
+
+print("\n>------------------> Шаг 3: Преобразование данных")
+
+# 3.1. Преобразование категориальных признаков ваыыбранных колонок в числовые в колонку
+
+for i in ('name','sex','date'):
+    data_filled[i].value_counts()
+    data_filled[i] = data_filled[i].astype('category')
+    data_filled[i+'_c'] = data_filled[i].cat.codes
+    data_filled.drop(i, axis= 1 , inplace= True ) 
+#проверяем итог
+print(data_filled)
+print(data_filled.dtypes)
+
+print("\n>------------------> шаг 3.2.Преобразование категориальных признаков")
+# 3.2. Преобразование категориальных признаков в числовые с использованием One-Hot Encoding
+# с разворачиванием в колонки в дополненную таблицу,
+# преобразоание проводим в цикле
+for col in data_filled.columns:
+    encoder = OneHotEncoder(sparse_output=False)  #готовим преобразование
+    if data_filled.dtypes[col] == 'object':       #ищем колонки 'object'
+        col_s=list(set(data_filled[col]))         #формируем массив имён колонок
+        col_s.sort()
+        data_encoded = pd.DataFrame(encoder.fit_transform(data_filled[[col]]), columns=col_s)
+        print("\n",data_encoded,"\n")               # проверяем полученный массив из колонки
+        data_filled = pd.concat([data_filled, data_encoded],axis=1) #дополняем массив данных
+        data_filled.drop(col,axis=1,inplace=True)   # удаляем старые данные
+print(data_filled)                          # проверяем итог
+
+print("\n>------------------> шаг 3.3.Масштабирование числовых признаков")
+# выполняем на колонке 'rating'
+scaler = StandardScaler()
+data_scaled = pd.DataFrame(scaler.fit_transform(data_filled[['rating']]), columns=['rating_scaled'])
+data_filled = pd.concat([data_filled, data_scaled],axis=1)
+data_filled.drop('rating',axis=1,inplace=True)
+# проверяем итог
+print(data_filled)
+print(data_filled.dtypes)
+
+print("\n>------------------>  Шаг 4.Сохранение предобработанных данных")
+
+data_filled.to_csv('pz-2.csv', index=False)
+print("Предобработанные данные сохранены в pz-2.csv")
+print("<------------------<")
+
+
+
+
+
+
+
+
+
